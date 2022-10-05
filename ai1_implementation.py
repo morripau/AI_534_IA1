@@ -1,12 +1,11 @@
 # CS 534
 # AI1 skeleton code
 # By Quintin Pope
-import pandas as pd, os, datetime, copy as cp, matplotlib.pyplot as plt
+import pandas as pd, os, numpy as np, matplotlib.pyplot as plt, copy as cp
 
 
 # Loads a data file from a provided file location.
 def load_data(path):
-    # Your code here:
     loaded_data = pd.read_csv(path, parse_dates= ["date"])
     return loaded_data
 
@@ -22,8 +21,6 @@ def preprocess_data(data, normalize:bool=False, drop_sqrt_living15:bool=False):
     data["day"] = data["date"].dt.day
     data.insert(0, "bias", 1)
     data.drop(["id", "date"], axis=1, inplace=True)
-    
-    
     age_since_renovated = np.zeros(len(data))
     
     for (i, value) in enumerate(data["yr_renovated"]):
@@ -33,8 +30,7 @@ def preprocess_data(data, normalize:bool=False, drop_sqrt_living15:bool=False):
             age_since_renovated[i] = data["year"][i] - data["yr_renovated"][i]
             
     data["age_since_renovated"] = age_since_renovated
-    
-    
+
     if normalize:
         global params
         params = {}
@@ -46,11 +42,11 @@ def preprocess_data(data, normalize:bool=False, drop_sqrt_living15:bool=False):
                 params[col] = (μ, σ)
                 
     if drop_sqrt_living15:
-        data.drop(sqrt_living15, axis=1, inplace=True)
+        data.drop(["sqrt_living15"], axis=1, inplace=True)
      
-    preprocessed_data = data.copy()  
+    preprocessed_data = data.copy()    
+    return preprocessed_data
 
-    return preprocess_data
     
 
 ###
@@ -93,27 +89,64 @@ def gd_train(data, labels, lr):
 
 # Generates and saves plots of the training loss curves. Note that you can interpret losses as a matrix
 # containing the losses of multiple training runs and then put multiple loss curves in a single plot.
-def plot_losses(losses, learning_rates):
+def plot_losses(losses):
     fig, ax = plt.subplots()
     plt.ylabel('loss')
     plt.xlabel('iteration')
+    col = ['r', 'g', 'b', 'c', 'm']
 
-    for i, loss in enumerate(losses):
-        line = plt.plot(loss, label=f"γ={learning_rates[i]}")
+    for i, (γ, loss) in enumerate(losses.items()):
+        iterations = [j for j in range(0, len(loss))]
+        plt.plot(iterations, loss, label=f"γ={γ}", color=col[i])
         
     ax.legend(loc='upper right')
-    fig
+    plt.show()
+
+def compare_rate(data, labels, learning_rates):
+    loss = {}
+    for lr in learning_rates:
+        loss[f"{lr}"] = gd_train(data, labels, lr)[1]
+        
+    return loss
 
 # Invoke the above functions to implement the required functionality for each part of the assignment.
 
 # Part 0  : Data preprocessing.
+training_file_dir = os.path.join(os.getcwd(), "IA1_train.csv")
+train_data = load_data(training_file_dir)
 
+
+valid_file_dir = os.path.join(os.getcwd(), "IA1_dev.csv")
+valid_data = load_data(valid_file_dir)
+
+data = {
+    "train" :  preprocess_data(cp.deepcopy(train_data)),
+    "train_norm" : preprocess_data(cp.deepcopy(train_data), normalize=True),
+    "valid" : preprocess_data(cp.deepcopy(valid_data)),
+    "valid_norm" : preprocess_data(cp.deepcopy(valid_data), normalize=True)
+}
 
 
 # Part 1 . Implement batch gradient descent and experiment with different learning rates.
-# Your code here:
+converging_learning_rates = [10**(-i) for i in [0, 1, 2, 3, 4]]
+diverging_learning_rates = [10**(-i) for i in [0, 1]]
 
+# part 1a - using normalized data
+y_norm = data["train_norm"]["price"]
 
+"""
+weights_norm = [0]*len(learning_rates)
+losses_norm = [0]*len(learning_rates)
+
+for i, γ in enumerate(learning_rates):
+    weights_norm[i] = gd_train(data["train_norm"], y_norm, γ)[1]
+    losses_norm[i] = gd_train(data["train_norm"], y_norm, γ)[2]
+
+"""
+losses_norm = compare_rate(data["train_norm"].to_numpy(), y_norm.to_numpy(), converging_learning_rates)
+
+#print(losses_norm)
+plot_losses(losses_norm)
 
 # Part 2 a. Training and experimenting with non-normalized data.
 # Your code here:
