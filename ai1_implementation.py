@@ -2,7 +2,7 @@
 # AI1 skeleton code
 # By Quintin Pope
 from pickle import TRUE
-import pandas as pd, os, numpy as np, matplotlib.pyplot as plt
+import pandas as pd, os, numpy as np, matplotlib.pyplot as plt, csv
 
 
 # Loads a data file from a provided file location.
@@ -117,7 +117,7 @@ def gd_train(data, lr, ϵ, n_iter=4000):
 # Generates and saves plots of the training loss curves. Note that you can interpret losses as a matrix
 # containing the losses of multiple training runs and then put multiple loss curves in a single plot.
 def plot_losses(losses, convergence, normalized=True):
-    ax = plt.subplots(figsize=[16,9])
+    fig, ax = plt.subplots(figsize=[16,9])
     plt.ylabel('Loss', fontweight="bold", )
     plt.xlabel('Iteration', fontweight="bold")
     #plt.xlim(1, 4000)
@@ -190,6 +190,7 @@ def validate(val_data, weights, convergences):
 
 # Invoke the above functions to implement the required functionality for each part of the assignment.
 
+"""
 # Part 0  : Data preprocessing.
 # step 1, load data
 training_file_dir = os.path.join(os.getcwd(), "IA1_train.csv")
@@ -201,12 +202,12 @@ valid_data        = load_data(valid_file_dir)
 data = {
     "train" :  preprocess_data(train_data),
     "train_norm" : preprocess_data(train_data, normalize=True),
-    "valid" : preprocess_data(train_data, test=True),
-    "valid_norm" : preprocess_data(train_data, normalize=True, test=True),
+    "valid" : preprocess_data(valid_data),
+    "valid_norm" : preprocess_data(valid_data, test=True),
     "train_redundancy_dropped" :  preprocess_data(train_data, drop_sqft_living15=True),
     "train_norm_redundancy_dropped" : preprocess_data(train_data, normalize=True, drop_sqft_living15=True),
-    "valid_redundancy_dropped" : preprocess_data(train_data, drop_sqft_living15=True, test=True),
-    "valid_norm_redundancy_dropped" : preprocess_data(train_data, normalize=True, drop_sqft_living15=True, test=True)
+    "valid_redundancy_dropped" : preprocess_data(valid_data, drop_sqft_living15=True),
+    "valid_norm_redundancy_dropped" : preprocess_data(valid_data, drop_sqft_living15=True, test=True)
 }
 
 ##########################################################################################
@@ -221,15 +222,13 @@ learning_rates_norm = [10**(-i) for i in [0, 1, 2, 3, 4]]
 weights_norm, mses_norm, convergences_norm = compare_rate(data["train_norm"], learning_rates_norm, ϵ)
 
 # print(losses normalized)
-plot_losses(mses_norm, convergences_norm)
+#plot_losses(mses_norm, convergences_norm) #uncomment to plot
 print("Based on the normalized data plot, convergence occurs in all the plots except γ=1")
 
 # validate normalized data
 validation_norm = validate(data["valid_norm"], weights_norm, convergences_norm)
 print("note validation data is presented as a dictionary in which learning rates are keys and MSE is value")
 print(f"validation MSE from the learned weights for normalized data are: {validation_norm}")
-
-
 
 #################################################################
 # Part 2 a. Training and experimenting with non-normalized data.#
@@ -242,7 +241,7 @@ learning_rates_not_normalized = [10**(-i) for i in [0.001*j for j in range(10010
 weights, mses, convergences = compare_rate(data["train"], learning_rates_not_normalized, ϵ)
 
 # print(losses not normalized)
-plot_losses(mses, convergences, normalized=False)
+#plot_losses(mses, convergences, normalized=False) #uncomment to plot
 print("Based on the non_normalized data plot, there appears to be a divergence threshold right around 9.85e-11")
 
 # validate not normalized
@@ -266,5 +265,56 @@ print(f"The weights for learning rate 0.1 with the redundant feature are: {data_
 # validate with the dropped redundante feature to compare
 data_sqft_living_dropped_val = validate(data["valid_norm_redundancy_dropped"], data_sqft_living_dropped_weights, data_sqft_living_dropped_convergences)
 print(f"validation MSE for the normalized data having dropped the redundance at learning rate 0.1 is: {data_sqft_living_dropped_val}")
+"""
+
+#################################
+#      competition code         #
+#################################
+
+# Part 0  : Data preprocessing.
+# step 1, load data
+training_file_dir = os.path.join(os.getcwd(), "PA1_train1.csv")
+train_data        = load_data(training_file_dir)
+test_file_dir    = os.path.join(os.getcwd(), "PA1_test1.csv")
+test_data        = load_data(test_file_dir)
+test_data_copy = test_data.copy()
+test_data_ids = test_data_copy["id"].copy()
+
+
+# step 2, preprocess data
+data = {
+    "train_norm" : preprocess_data(train_data,drop_sqft_living15=True, normalize=True),
+    "test_norm_redundancy_dropped" : preprocess_data(test_data, drop_sqft_living15=True, test=True)
+}
+
+weights_norm, mses_norm, convergences_norm = gd_train(data["train_norm"], 0.11, 0.000001, n_iter=40000)
+
+
+def gen_predictions(test_data, ids, weights):
+    test_data   = test_data.to_numpy()
+    n_data     = test_data.shape[0]
+    x_val      = np.transpose(test_data)
+    header = ['id', 'price']
+    data_file_rows = [0]*len(ids)
+
+
+    for j in range(n_data):
+            xᵢ_val = x_val[:,j]
+            ŷᵢ_val = np.dot(weights, xᵢ_val)    
+            data_file_rows[j] = [ids[j],  ŷᵢ_val]     
+
+    with open('predictions.csv', 'w', encoding='UTF8', newline='') as f:
+        writer = csv.writer(f)
+
+        # write the header
+        writer.writerow(header)
+
+        # write multiple rows
+        writer.writerows(data_file_rows)
+
+gen_predictions(data["test_norm_redundancy_dropped"], test_data_ids, weights_norm)
+    
+    
+
 
 
